@@ -12,29 +12,6 @@ st.title("🗓️ Current Date: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 # 🌐 ONLINE-READY SINGLE FILE APP
 st.set_page_config(page_title="Office Stock List", page_icon="📦", layout="wide")
 
-# Add these buttons
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("💾 Download Data"):
-        df = pd.DataFrame(list(st.session_state.stocks.items()), 
-                         columns=['Item', 'Quantity'])
-        st.download_button("Download CSV", df.to_csv(), "stock_data.csv")
-with col2:
-    uploaded = st.file_uploader("📤 Upload CSV")
-    if uploaded:
-        st.session_state.stocks = dict(pd.read_csv(uploaded).values)
-
-import gspread
-from google.oauth2.service_account import Credentials
-
-# Google Sheets link - works across ALL devices instantly!
-SCOPE = ["https://spreadsheets.google.com/feeds"]
-CREDS = Credentials.from_service_account_file("credentials.json", scopes=SCOPE)
-gc = gspread.authorize(CREDS)
-sheet = gc.open("Office-Stock-List").sheet1
-
-# Load data
-st.session_state.stocks = dict(zip(sheet.col_values(1), sheet.col_values(2)))
 
 # 📊 IN-MEMORY STORAGE (resets on restart - perfect for demo)
 if "stocks" not in st.session_state:
