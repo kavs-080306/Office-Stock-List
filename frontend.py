@@ -3,6 +3,18 @@ import requests
 import pandas as pd
 from datetime import datetime
 
+import requests
+
+# Replace with YOUR IP
+BACKEND_URL = "http://192.168.1.100:5000/api"
+
+# Get stocks from backend
+try:
+    response = requests.get(f"{BACKEND_URL}/stocks")
+    st.session_state.stocks = response.json()['stocks']
+except:
+    st.info("⚠️ Backend offline - using local storage")
+
 API_BASE = "http://localhost:5001/api"
 
 st.set_page_config(page_title="Office Stock Manager", page_icon="📦", layout="wide")
@@ -32,11 +44,17 @@ def add_stock(name, quantity, category):
     except:
         return False
 
-def remove_stock(name, quantity, person):
+def remove_stock(name, quantity, person="Unknown"):
     try:
-        resp = requests.post(f"{API_BASE}/stocks/remove", json={"name": name, "quantity": int(quantity), "person": person})
+        resp = requests.post(f"{API_BASE}/stocks/remove", json={
+            "name": name, 
+            "quantity": int(quantity),
+            "person": person  # ✅ Send person name
+        })
+        print(f"Remove Response: {resp.status_code} - {resp.text}")
         return resp.status_code in [200, 201]
-    except:
+    except Exception as e:
+        print(f"Remove error: {e}")
         return False
 
 # HEADER
@@ -182,6 +200,48 @@ with tab2:
             else:
                 st.error("❌ Failed!")
         col_btn2.form_submit_button("🔄 Refresh")
+
+with tab3:
+    st.subheader("➖ Take Out Stock")
+    st.info("👥 Select person → Stock → Quantity → Track who took what!")
+    
+    with st.form("remove_stock"):
+        # Person selection (NEW!)
+        person = st.selectbox("👤 Given to:", ["Abul", "Balaji", "Vibin"])
+        
+        # Show available stocks for selection
+        stocks = get_stocks()
+        if stocks:
+            stock_names = [stock['name'] for stock in stocks]
+            selected_stock = st.selectbox("📦 Select Stock", stock_names)
+            
+            # Show current quantity
+            current_stock = next((s for s in stocks if s['name'] == selected_stock), None)
+            if current_stock:
+                st.info(f"📊 **Current:** {current_stock['name']} = **{current_stock['quantity']}** units")
+                st.info(f"👤 **Person:** {person}")
+            
+            quantity_out = st.number_input("📤 Quantity Taken Out", min_value=1, value=1, 
+                                         max_value=current_stock['quantity'] if current_stock else 100)
+            
+            col1, col2 = st.columns(2)
+            submitted = col1.form_submit_button("➖ Take Out Stock", use_container_width=True)
+            col2.form_submit_button("🗑️ Clear")
+            
+            if submitted and selected_stock:
+                # Send person info to backend
+                if remove_stock(selected_stock, quantity_out, person):
+                    remaining = current_stock['quantity'] - quantity_out
+                    st.success(f"✅ **{quantity_out}** units of **{selected_stock}** given to **{person}**!\n"
+                             f"📦 **Remaining:** {remaining} units")
+                    st.balloons()
+                    st.rerun()
+                else:
+                    st.error("❌ Remove failed - Check backend terminal")
+            elif submitted:
+                st.error("❌ Please select stock & person!")
+        else:
+            st.warning("📦 No stocks available. Add some using ➕ tab!")
 
 # FOOTER
 st.markdown("---")
